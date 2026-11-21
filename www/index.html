@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>볼륨 평준화 플레이어</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f1ee;--surface:#fff;--ink:#1c1f24;--muted:#6b7280;--line:#dcd8d2;--accent:#1f5eff;--bar:#c9c4bb;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16181c;--surface:#1f2228;--ink:#eceae6;--muted:#9097a3;--line:#33373f;--accent:#6b95ff;--bar:#454a54;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#16181c;--surface:#1f2228;--ink:#eceae6;--muted:#9097a3;--line:#33373f;--accent:#6b95ff;--bar:#454a54;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.55 "Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+main{max-width:720px;margin:0 auto;padding:28px 18px 150px}
+h1{font-size:26px;font-weight:700;margin:0 0 6px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 22px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.lbl{font-weight:500;margin-right:4px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink);padding:7px 12px;font:inherit;font-size:14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+button{font-family:inherit}
+button:focus-visible,input:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.sw{display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:auto}
+.sw input{accent-color:var(--accent);width:18px;height:18px}
+#drop{margin:14px 0;border:2px dashed var(--line);border-radius:12px;padding:26px 16px;text-align:center;color:var(--muted);transition:border-color .15s,background .15s}
+#drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+#drop label{display:inline-block;margin-top:10px;background:var(--accent);color:#fff;padding:9px 18px;border-radius:8px;font-weight:500;cursor:pointer}
+#drop input{position:absolute;opacity:0;width:1px;height:1px}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+li button.item{width:100%;text-align:left;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;display:block}
+li.cur button.item{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.nm{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.info{font-size:13px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.meter{position:relative;margin-top:9px;height:14px}
+.meter i{position:absolute;left:0;height:5px;border-radius:3px;display:block;transition:width .3s}
+.meter .o{top:0;background:var(--bar)}
+.meter .n{top:8px;background:var(--accent)}
+.meter b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.55}
+.bass{margin-top:10px;display:grid;gap:10px}.bass input[type=range]{flex:1;min-width:140px;accent-color:var(--accent)}.bass .lbl{min-width:150px}.bass .info{min-width:52px;text-align:right}.hint{margin:0;font-size:13px;color:var(--muted)}
+#drop label+label{margin-left:8px}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin:0 0 10px}
+.legend span::before{content:"";display:inline-block;width:14px;height:5px;border-radius:3px;margin-right:6px;vertical-align:middle;background:var(--bar)}
+.legend span+span::before{background:var(--accent)}
+.legend em{font-style:normal}
+.empty{color:var(--muted);text-align:center;padding:10px 0}
+#bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px))}
+#bar .in{max-width:720px;margin:0 auto}
+#now{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:6px;min-height:23px}
+.ctl{display:flex;align-items:center;gap:12px}
+.ctl button{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ink);font-size:15px;cursor:pointer;flex:none}
+.ctl button#pp{background:var(--accent);border-color:var(--accent);color:#fff;width:46px;height:46px}
+.ctl input[type=range]{flex:1;accent-color:var(--accent);min-width:0}
+.tm{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+</style>
+</head>
+<body>
+<main>
+  <h1>볼륨 평준화 플레이어</h1>
+  <p class="sub">음악 파일마다 다른 소리 크기를 분석해서, 같은 크기로 맞춰 재생합니다. 파일은 기기 밖으로 나가지 않습니다.</p>
+
+  <div class="panel row">
+    <span class="lbl">목표 음량</span>
+    <div class="seg" id="targets" role="group" aria-label="목표 음량">
+      <button data-t="-12" aria-pressed="false">−12</button>
+      <button data-t="-14" aria-pressed="true">−14</button>
+      <button data-t="-16" aria-pressed="false">−16</button>
+      <button data-t="-18" aria-pressed="false">−18</button>
+    </div>
+    <span class="info">LUFS</span>
+    <label class="sw"><input type="checkbox" id="norm" checked> 평준화 켜기</label>
+  </div>
+
+  <div class="panel bass">
+    <div class="row"><span class="lbl">저음</span><input type="range" id="bass" min="-12" max="12" step="1" value="0" aria-label="베이스 강화 세기"><span class="info" id="bassv">0 dB</span></div>
+    <div class="row"><span class="lbl">저음 범위</span><input type="range" id="bassf" min="50" max="200" step="10" value="100" aria-label="베이스 적용 주파수"><span class="info" id="bassfv">100 Hz</span></div>
+    <div class="row"><span class="lbl">중음 (250 Hz–4 kHz)</span><input type="range" id="mid" min="-12" max="12" step="1" value="0" aria-label="중음 세기"><span class="info" id="midv">0 dB</span></div>
+    <div class="row"><span class="lbl">고음 (4 kHz 이상)</span><input type="range" id="treb" min="-12" max="12" step="1" value="0" aria-label="고음 세기"><span class="info" id="trebv">0 dB</span></div>
+    <p class="hint">각 슬라이더는 해당 음역만 조절하고 다른 음역은 그대로 둡니다. 0이 원음입니다.</p>
+  </div>
+
+  <div id="drop">
+    음악 파일을 여기에 끌어다 놓으세요 (MP3, WAV, FLAC, M4A, OGG)
+    <br><label>파일 선택<input type="file" id="file" accept="audio/*" multiple></label><label>폴더 선택<input type="file" id="dir" webkitdirectory multiple></label>
+  </div>
+
+  <div class="legend"><span>원본 음량</span><span>평준화 후</span><em>세로선은 목표 음량</em></div>
+  <ul id="list"></ul>
+  <p class="empty" id="empty">아직 불러온 파일이 없습니다.</p>
+</main>
+
+<div id="bar">
+  <div class="in">
+    <div id="now">재생할 곡을 선택하세요</div>
+    <div class="ctl">
+      <button id="prev" aria-label="이전 곡">⏮</button>
+      <button id="pp" aria-label="재생 또는 일시정지">▶</button>
+      <button id="next" aria-label="다음 곡">⏭</button>
+      <input type="range" id="seek" min="0" max="1000" value="0" aria-label="재생 위치">
+      <span class="tm" id="tm">0:00 / 0:00</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const Ctx = window.AudioContext || window.webkitAudioContext;
+const ctx = new Ctx();
+const tg = ctx.createGain();
+const lim = ctx.createDynamicsCompressor();
+lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.12;
+tg.connect(lim); lim.connect(ctx.destination);
+// Bass-only boost: a low-passed copy is added in parallel, so only the low band changes
+const lp1 = ctx.createBiquadFilter(), lp2 = ctx.createBiquadFilter(), bassG = ctx.createGain();
+lp1.type = 'lowpass'; lp2.type = 'lowpass'; lp1.Q.value = 0.707; lp2.Q.value = 0.707;
+lp1.frequency.value = 100; lp2.frequency.value = 100; bassG.gain.value = 0;
+tg.connect(lp1); lp1.connect(lp2); lp2.connect(bassG); bassG.connect(lim);
+let bassDb = 0;
+function applyBass() { bassG.gain.setTargetAtTime(Math.pow(10, bassDb / 20) - 1, ctx.currentTime, 0.03); }
+// Mid band (250 Hz-4 kHz) and treble band (4 kHz+), each added in parallel the same way
+let token = 0, midDb = 0, trebDb = 0;
+const mHp = ctx.createBiquadFilter(), mLp = ctx.createBiquadFilter(), midG = ctx.createGain();
+mHp.type = 'highpass'; mHp.frequency.value = 250; mLp.type = 'lowpass'; mLp.frequency.value = 4000; midG.gain.value = 0;
+tg.connect(mHp); mHp.connect(mLp); mLp.connect(midG); midG.connect(lim);
+const tH1 = ctx.createBiquadFilter(), tH2 = ctx.createBiquadFilter(), trebG = ctx.createGain();
+tH1.type = 'highpass'; tH2.type = 'highpass'; tH1.frequency.value = 4000; tH2.frequency.value = 4000; trebG.gain.value = 0;
+tg.connect(tH1); tH1.connect(tH2); tH2.connect(trebG); trebG.connect(lim);
+const dbGain = d => Math.pow(10, d / 20) - 1;
+const fmtDb = d => (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + ' dB';
+
+let tracks = [], cur = -1, playing = false, offset = 0, startedAt = 0, src = null, norm = true, target = -14;
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct = l => Math.max(0, Math.min(100, (l + 40) / 40 * 100));
+const fmt = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const gainDb = t => (norm && isFinite(t.lufs)) ? Math.min(18, target - t.lufs) : 0;
+
+async function measure(buf) {
+  const ch = Math.min(buf.numberOfChannels, 2);
+  const off = new OfflineAudioContext(ch, buf.length, buf.sampleRate);
+  const s = off.createBufferSource(); s.buffer = buf;
+  const hs = off.createBiquadFilter(); hs.type = 'highshelf'; hs.frequency.value = 1681; hs.gain.value = 4;
+  const hp = off.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 38; hp.Q.value = 0.5;
+  s.connect(hs); hs.connect(hp); hp.connect(off.destination); s.start();
+  const r = await off.startRendering();
+  const N = Math.floor(buf.sampleRate * 0.1), segs = Math.floor(r.length / N), e = new Float64Array(segs);
+  for (let c = 0; c < ch; c++) {
+    const d = r.getChannelData(c);
+    for (let k = 0; k < segs; k++) { let a = 0; for (let i = k * N, end = i + N; i < end; i++) a += d[i] * d[i]; e[k] += a / N; }
+  }
+  const blocks = [];
+  for (let k = 0; k + 4 <= segs; k++) blocks.push((e[k] + e[k+1] + e[k+2] + e[k+3]) / 4);
+  const L = m => -0.691 + 10 * Math.log10(m);
+  const abs = blocks.filter(m => m > 0 && L(m) > -70);
+  let lufs = -Infinity;
+  if (abs.length) {
+    const g1 = L(abs.reduce((a, b) => a + b, 0) / abs.length) - 10;
+    const rel = abs.filter(m => L(m) > g1);
+    if (rel.length) lufs = L(rel.reduce((a, b) => a + b, 0) / rel.length);
+  }
+  let peak = 0;
+  for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; } }
+  return { lufs, peak: peak > 0 ? 20 * Math.log10(peak) : -Infinity };
+}
+
+async function addFiles(files) {
+  for (const f of files) {
+    if (!(f.type.startsWith('audio') || /\.(mp3|wav|flac|m4a|aac|ogg|opus)$/i.test(f.name))) continue;
+    const t = { name: f.name.replace(/\.[^.]+$/, ''), status: 'analyzing' };
+    tracks.push(t); render();
+    try {
+      t.file = f; const b = await ctx.decodeAudioData(await f.arrayBuffer());
+      const m = await measure(b); t.dur = b.duration;
+      t.lufs = m.lufs; t.peak = m.peak; t.status = 'ready';
+    } catch (err) { t.status = 'error'; }
+    render();
+  }
+}
+
+function applyGain() { if (cur >= 0 && tracks[cur]) tg.gain.setTargetAtTime(Math.pow(10, gainDb(tracks[cur]) / 20), ctx.currentTime, 0.03); }
+function stopSrc() { if (src) { const s = src; src = null; s.onended = null; try { s.stop(); } catch (e) {} } }
+function pos() { return playing ? offset + (ctx.currentTime - startedAt) : offset; }
+
+async function play(i, off) {
+  const t = tracks[i];
+  if (!t || t.status !== 'ready') return;
+  ctx.resume(); stopSrc(); cur = i; playing = false; offset = off; const my = ++token;
+  if (!t.buf) {
+    render();
+    try {
+      const b = await ctx.decodeAudioData(await t.file.arrayBuffer());
+      if (my !== token) return;
+      tracks.forEach(x => { if (x !== t) x.buf = null; });
+      t.buf = b;
+    } catch (e) { if (my === token) { t.status = 'error'; render(); } return; }
+  }
+  applyGain();
+  const s = ctx.createBufferSource(); s.buffer = t.buf; s.connect(tg);
+  s.onended = () => { if (src === s) { src = null; playing = false; offset = 0; if (cur < tracks.length - 1 && tracks.slice(cur + 1).some(x => x.status === 'ready')) step(1); else render(); } };
+  s.start(0, off); src = s; startedAt = ctx.currentTime; offset = off; playing = true; render();
+}
+function step(d) {
+  let i = cur < 0 ? (d > 0 ? -1 : tracks.length) : cur;
+  do { i += d; } while (i >= 0 && i < tracks.length && tracks[i].status !== 'ready');
+  if (i >= 0 && i < tracks.length) play(i, 0);
+}
+function toggle() {
+  if (cur < 0) { const i = tracks.findIndex(t => t.status === 'ready'); if (i >= 0) play(i, 0); return; }
+  if (playing) { offset = pos(); stopSrc(); playing = false; render(); } else play(cur, offset);
+}
+
+function render() {
+  $('empty').style.display = tracks.length ? 'none' : '';
+  $('list').innerHTML = tracks.map((t, i) => {
+    let info = '분석 중…', meter = '';
+    if (t.status === 'error') info = '불러오지 못했습니다';
+    if (t.status === 'ready') {
+      if (isFinite(t.lufs)) {
+        const g = gainDb(t), after = t.lufs + g;
+        info = t.lufs.toFixed(1) + ' LUFS' + (norm ? ' → ' + (g >= 0 ? '+' : '−') + Math.abs(g).toFixed(1) + ' dB' : '');
+        meter = '<div class="meter"><i class="o" style="width:' + pct(t.lufs) + '%"></i><i class="n" style="width:' + pct(after) + '%"></i><b style="left:' + pct(target) + '%"></b></div>';
+      } else info = '무음';
+    }
+    return '<li class="' + (i === cur ? 'cur' : '') + '"><button class="item" data-i="' + i + '"' + (t.status === 'ready' ? '' : ' disabled') + '><div class="top"><span class="nm">' + esc(t.name) + '</span><span class="info">' + info + '</span></div>' + meter + '</button></li>';
+  }).join('');
+  $('pp').textContent = playing ? '⏸' : '▶';
+  $('now').textContent = cur >= 0 ? tracks[cur].name : '재생할 곡을 선택하세요';
+  tick();
+}
+function tick() {
+  if (cur < 0 || !tracks[cur] || !tracks[cur].dur) return;
+  const d = tracks[cur].dur, p = Math.min(pos(), d);
+  if (document.activeElement !== $('seek')) $('seek').value = Math.round(p / d * 1000);
+  $('tm').textContent = fmt(p) + ' / ' + fmt(d);
+}
+setInterval(tick, 250);
+
+$('list').addEventListener('click', e => { const b = e.target.closest('button.item'); if (b) play(+b.dataset.i, 0); });
+$('pp').onclick = toggle; $('prev').onclick = () => step(-1); $('next').onclick = () => step(1);
+$('seek').addEventListener('change', e => {
+  if (cur < 0) return;
+  const o = e.target.value / 1000 * tracks[cur].dur;
+  if (playing) play(cur, o); else { offset = o; tick(); }
+});
+$('norm').onchange = e => { norm = e.target.checked; applyGain(); render(); };
+$('targets').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  target = +b.dataset.t;
+  document.querySelectorAll('#targets button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  applyGain(); render();
+});
+$('bass').oninput = e => { bassDb = +e.target.value; $('bassv').textContent = fmtDb(bassDb); applyBass(); };
+$('bassf').oninput = e => { const f = +e.target.value; lp1.frequency.value = f; lp2.frequency.value = f; $('bassfv').textContent = f + ' Hz'; };
+$('mid').oninput = e => { midDb = +e.target.value; $('midv').textContent = fmtDb(midDb); midG.gain.setTargetAtTime(dbGain(midDb), ctx.currentTime, 0.03); };
+$('treb').oninput = e => { trebDb = +e.target.value; $('trebv').textContent = fmtDb(trebDb); trebG.gain.setTargetAtTime(dbGain(trebDb), ctx.currentTime, 0.03); };
+$('dir').onchange = e => { addFiles([...e.target.files].sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, 'ko', { numeric: true }))); e.target.value = ''; };
+$('file').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(n => drop.addEventListener(n, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(n => drop.addEventListener(n, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => addFiles([...e.dataTransfer.files]));
+render();
+</script>
+<script>if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){var d=document.getElementById("dir");if(d&&d.parentElement)d.parentElement.style.display="none";}</script>
+</body>
+</html>
